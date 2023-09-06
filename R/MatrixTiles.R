@@ -18,6 +18,7 @@
 #' @param threads The number of threads to be used for parallel computing.
 #' @param parallelParam A list of parameters to be passed for biocparallel/batchtools parallel computing.
 #' @param force A boolean value indicating whether to force the "TileMatrix' to be overwritten if it already exist in the given `input`.
+#' @param maxFragmentLength An integer or Inf that describes the max fragment length to retain when filtering
 #' @param logFile The path to a file to be used for logging ArchR output.
 #' @export
 addTileMatrix <- function(
@@ -30,6 +31,7 @@ addTileMatrix <- function(
   threads = getArchRThreads(),
   parallelParam = NULL,
   force = FALSE,
+  maxFragmentLength=Inf,
   logFile = createLogFile("addTileMatrix")
   ){
 
@@ -42,6 +44,7 @@ addTileMatrix <- function(
   .validInput(input = threads, name = "threads", valid = c("integer"))
   .validInput(input = parallelParam, name = "parallelParam", valid = c("parallelparam", "null"))
   .validInput(input = force, name = "force", valid = c("boolean"))
+  .validInput(input = maxFragmentLength, name = "maxFragmentLength", valid = c("integer", "infinite"))
   .validInput(input = logFile, name = "logFile", valid = c("character"))
 
   if(inherits(input, "ArchRProject")){
@@ -67,10 +70,12 @@ addTileMatrix <- function(
   args$ArrowFiles <- ArrowFiles
   args$allCells <- allCells
   args$X <- seq_along(ArrowFiles)
+  args$maxFragmentLength <- maxFragmentLength
   args$FUN <- .addTileMat
   args$chromLengths <- end(chromSizes)
   names(args$chromLengths) <- paste0(seqnames(chromSizes))
   args$registryDir <- file.path(outDir, "CountTilesRegistry")
+  
 
   #Remove Input from args
   args$input <- NULL
@@ -100,6 +105,7 @@ addTileMatrix <- function(
   force = FALSE,
   subThreads = 1,
   tstart = NULL,
+  maxFragmentLength=Inf,
   logFile = NULL
   ){
 
@@ -113,6 +119,7 @@ addTileMatrix <- function(
   .validInput(input = blacklist, name = "blacklist", valid = c("GRanges", "null"))
   .validInput(input = chromLengths, name = "chromLengths", valid = c("numeric"))
   .validInput(input = force, name = "force", valid = c("boolean"))
+  .validInput(input = maxFragmentLength, name = "maxFragmentLength", valid = c("integer", "infinite"))
 
   ArrowFile <- ArrowFiles[i]
   sampleName <- .sampleName(ArrowFile)
@@ -188,7 +195,7 @@ addTileMatrix <- function(
       .logDiffTime(sprintf("Adding TileMatrix to %s for Chr (%s of %s)!", sampleName, z, length(chromLengths)), t1 = tstart, logFile = logFile)
 
       #Read in Fragments
-      fragments <- .getFragsFromArrow(ArrowFile, chr = chr, out = "IRanges", cellNames = cellNames)
+      fragments <- .getFragsFromArrow(ArrowFile, chr = chr, out = "IRanges", cellNames = cellNames, maxFragmentLength = maxFragmentLength)
 
       #N Tiles
       nTiles <- trunc(chromLengths[z] / tileSize) + 1
